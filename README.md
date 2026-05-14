@@ -50,6 +50,18 @@ The `deploy.sh` script automates:
 **Problem**: The DAG failed to parse with a `TypeError` because `schedule_interval` is deprecated and removed in Airflow 3.0+.
 **Solution**: Updated the DAG definition to use the new `schedule` parameter.
 
+### 7. Dynamic Worker Dependency Management
+**Problem**: In `KubernetesExecutor`, ephemeral worker pods were crashing because they lacked the necessary geospatial Python libraries (`osmnx`, `geopandas`).
+**Solution**: Leveraged the `_PIP_ADDITIONAL_REQUIREMENTS` environment variable in the Helm chart. This forces all Airflow components (including dynamic workers) to install the required packages at runtime during container startup.
+
+### 8. Visibility into Ephemeral Task Logs
+**Problem**: Task logs were lost when worker pods were deleted, making troubleshooting difficult.
+**Solution**: (Work in Progress) Log persistence requires `ReadWriteOnce` volumes and specific Helm chart configurations. Currently, logs are accessible in real-time via `kubectl logs`.
+
+### 9. Worker Resource Constraints
+**Problem**: Large spatial extractions (e.g., Lagos building footprints) can exceed default pod memory limits, leading to OOM (Out Of Memory) kills.
+**Solution**: Increased worker pod resource limits to 4GB RAM and 2 CPUs in the Helm chart.
+
 ## Data Pipeline
 
 ### Airflow DAGs
