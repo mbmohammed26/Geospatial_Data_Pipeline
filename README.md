@@ -50,9 +50,9 @@ The `deploy.sh` script automates:
 **Problem**: The DAG failed to parse with a `TypeError` because `schedule_interval` is deprecated and removed in Airflow 3.0+.
 **Solution**: Updated the DAG definition to use the new `schedule` parameter.
 
-### 7. Dynamic Worker Dependency Management
-**Problem**: In `KubernetesExecutor`, ephemeral worker pods were crashing because they lacked the necessary geospatial Python libraries (`osmnx`, `geopandas`).
-**Solution**: Leveraged the `_PIP_ADDITIONAL_REQUIREMENTS` environment variable in the Helm chart. This forces all Airflow components (including dynamic workers) to install the required packages at runtime during container startup.
+### 7. Pre-Warmed Shared Dependencies
+**Problem**: In `KubernetesExecutor`, ephemeral worker pods were crashing due to extremely slow dependency downloads (90kB/s) at runtime, causing startup timeouts.
+**Solution**: Optimized the pipeline by pre-installing all heavy geospatial libraries into a shared `python_libs` directory on the `data-pvc`. The DAG now dynamically adds this path to `sys.path`, enabling near-instant task startup without redundant downloads.
 
 ### 8. Visibility into Ephemeral Task Logs
 **Problem**: Task logs were lost when worker pods were deleted, making troubleshooting difficult.
@@ -113,6 +113,21 @@ To assemble the **Urban Flood Risk Dashboard**:
 - **Visualization Type**: `deck.gl Scatterplot`
 - **Longitude/Latitude**: Use the corresponding columns.
 - **Point Radius**: Map to `precipitation_sum` to visualize rainfall intensity.
+
+## Resumption Guide
+To pick up where we left off:
+1. **Finish Pre-Warming Libraries**: Run the pip install into the shared volume (this was interrupted):
+   ```bash
+   kubectl exec -it $(kubectl get pods -n geodata -l component=scheduler -o jsonpath='{.items[0].metadata.name}') -n geodata -- pip install --target /opt/airflow/data/raw/python_libs geopandas shapely sqlalchemy geoalchemy2 osmnx requests
+   ```
+2. **Trigger the Pipeline**: Once the libs are installed, trigger the DAG:
+   ```bash
+   kubectl exec -it $(kubectl get pods -n geodata -l component=scheduler -o jsonpath='{.items[0].metadata.name}') -n geodata -- airflow dags trigger extract_spatial_data
+   ```
+3. **Access Superset**:
+   ```bash
+   kubectl port-forward service/superset 8088:8088 -n geodata
+   ```
 
 ## How to Deploy
 Run the following command in the project root:
