@@ -90,7 +90,7 @@ with DAG(
     'extract_spatial_data',
     default_args=default_args,
     description='Extract OSM and Weather data for Nigeria Flood Risk Assessment',
-    schedule_interval=timedelta(days=1),
+    schedule=timedelta(days=1),
     catchup=False,
     tags=['geospatial', 'nigeria', 'flood-risk'],
 ) as dag:
