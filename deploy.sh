@@ -40,7 +40,7 @@ helm upgrade --install superset superset/superset \
   --namespace $NAMESPACE \
   --set labels.project=flood-risk \
   --set image.repository=apache/superset \
-  --set image.tag=5.0.0 \
+  --set image.tag=5.0.0-dev \
   --set "configOverrides.secret=SECRET_KEY = '$SECRET_KEY'" \
   --set postgresql.enabled=true \
   --wait --timeout 20m0s
