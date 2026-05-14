@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgis-pvc
+  namespace: geodata
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgis
+  namespace: geodata
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: postgis
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgis
+  namespace: geodata
+spec:
+  serviceName: "postgis"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgis
+  template:
+    metadata:
+      labels:
+        app: postgis
+    spec:
+      containers:
+      - name: postgis
+        image: postgis/postgis:latest
+        ports:
+        - containerPort: 5432
+          name: postgis
+        env:
+        - name: POSTGRES_DB
+          value: geodata
+        - name: POSTGRES_USER
+          value: geo_admin
+        - name: POSTGRES_PASSWORD
+          value: geo_password
+        volumeMounts:
+        - name: postgis-storage
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgis-storage
+        persistentVolumeClaim:
+          claimName: postgis-pvc

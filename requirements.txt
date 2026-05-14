@@ -1,0 +1,6 @@
+geopandas
+shapely
+sqlalchemy
+geoalchemy2
+osmnx
+apache-airflow
