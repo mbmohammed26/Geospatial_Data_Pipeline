@@ -105,4 +105,21 @@ with DAG(
         python_callable=extract_weather_data,
     )
 
-    osm_task >> weather_task
+    # Note: In a production environment, we'd use a dedicated container or 
+    # ensure the script is in the PYTHONPATH. For this scaffold, we'll run it as a task.
+    def run_transform_and_load():
+        # Using import instead of subprocess for better integration if in the same volume
+        import sys
+        sys.path.append('/opt/airflow/dags/repo/scripts') # Assuming git-sync or similar
+        sys.path.append('/opt/airflow/dags/scripts')
+        from transform_and_load import transform_and_load_spatial, transform_and_load_rainfall, create_spatial_indexes
+        transform_and_load_spatial()
+        transform_and_load_rainfall()
+        create_spatial_indexes()
+
+    transform_task = PythonOperator(
+        task_id='transform_and_load_to_postgis',
+        python_callable=run_transform_and_load,
+    )
+
+    osm_task >> weather_task >> transform_task

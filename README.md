@@ -55,6 +55,11 @@ The `deploy.sh` script automates:
   - **Logic**: Each task runs in an isolated pod (KubernetesExecutor). Uses `osmnx` for spatial data and `requests` for weather APIs.
   - **Output**: Raw data is stored in `/opt/airflow/data/raw/` on the shared `data-pvc`.
 
+- **`transform_and_load`**:
+  - **Purpose**: Cleans raw data, reprojects to `EPSG:4326`, and loads it into PostGIS.
+  - **Tables**: `buildings`, `roads`, `rainfall`.
+  - **Logic**: Uses `GeoPandas` for spatial transformations and `GeoAlchemy2` for PostGIS loading. Adds spatial GIST indexes to geometry columns.
+
 ## How to Deploy
 Run the following command in the project root:
 ```bash
