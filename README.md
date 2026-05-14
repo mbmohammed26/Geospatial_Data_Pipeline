@@ -60,6 +60,44 @@ The `deploy.sh` script automates:
   - **Tables**: `buildings`, `roads`, `rainfall`.
   - **Logic**: Uses `GeoPandas` for spatial transformations and `GeoAlchemy2` for PostGIS loading. Adds spatial GIST indexes to geometry columns.
 
+## Superset Configuration & Visualization
+
+### 1. Automating Connection
+Run the following commands to connect Superset to PostGIS and create datasets:
+```bash
+# Upload the init script to the Superset pod
+export SUPERSET_POD=$(kubectl get pods -n geodata -l app=superset -o jsonpath='{.items[0].metadata.name}')
+kubectl cp scripts/superset_init_geodata.py geodata/$SUPERSET_POD:/tmp/superset_init_geodata.py
+
+# Execute the script via Superset shell
+kubectl exec -it $SUPERSET_POD -n geodata -- superset shell < scripts/superset_init_geodata.py
+```
+
+### 2. Accessing the UI
+1. **Port-Forward**:
+   ```bash
+   kubectl port-forward service/superset 8088:8088 -n geodata
+   ```
+2. **Login**:
+   - URL: `http://localhost:8088`
+   - Default Username: `admin`
+   - Default Password: `admin` (Wait for `superset-init` job to complete)
+
+### 3. Creating the Dashboard
+To assemble the **Urban Flood Risk Dashboard**:
+
+#### Building Footprints (Deck.gl Polygon)
+- **Dataset**: `buildings`
+- **Visualization Type**: `deck.gl Polygon`
+- **Geometry Column**: `geometry`
+- **Styling**: Set opacity to 0.6 and choose a color gradient based on building attributes (if available).
+
+#### Rainfall Data (Deck.gl Scatterplot)
+- **Dataset**: `rainfall`
+- **Visualization Type**: `deck.gl Scatterplot`
+- **Longitude/Latitude**: Use the corresponding columns.
+- **Point Radius**: Map to `precipitation_sum` to visualize rainfall intensity.
+
 ## How to Deploy
 Run the following command in the project root:
 ```bash
