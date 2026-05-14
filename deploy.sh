@@ -14,14 +14,16 @@ helm repo add apache-airflow https://airflow.apache.org
 helm repo add superset https://apache.github.io/superset
 helm repo update
 
-echo "Deploying PostGIS"
+echo "Deploying Infrastructure Manifests"
 kubectl apply -f k8s/postgis-deployment.yaml
+kubectl apply -f k8s/data-pvc.yaml
 
 echo "Waiting for PostGIS to be ready..."
 kubectl rollout status statefulset/postgis -n $NAMESPACE --timeout=5m
 
 echo "Installing Apache Airflow with KubernetesExecutor"
-# We enable migrateDatabaseJob and createUserJob to ensure the DB is initialized
+# We enable dags.persistence to ensure DAGs are available to worker pods
+# We mount data-pvc to /opt/airflow/data/raw
 helm upgrade --install airflow apache-airflow/airflow \
   --namespace $NAMESPACE \
   --set executor=KubernetesExecutor \
@@ -31,11 +33,16 @@ helm upgrade --install airflow apache-airflow/airflow \
   --set migrateDatabaseJob.useHelmHooks=false \
   --set createUserJob.enabled=true \
   --set createUserJob.useHelmHooks=false \
+  --set dags.persistence.enabled=true \
+  --set dags.persistence.size=1Gi \
+  --set "extraPipPackages={geopandas,shapely,sqlalchemy,geoalchemy2,osmnx,requests}" \
+  --set "workers.extraVolumes[0].name=data-volume" \
+  --set "workers.extraVolumes[0].persistentVolumeClaim.claimName=data-pvc" \
+  --set "workers.extraVolumeMounts[0].name=data-volume" \
+  --set "workers.extraVolumeMounts[0].mountPath=/opt/airflow/data/raw" \
   --wait --timeout 20m0s
 
 echo "Installing Apache Superset"
-# We set the SECRET_KEY via configOverrides to satisfy Superset's security check
-# Using the standard image from Docker Hub to avoid Scarf registry issues
 helm upgrade --install superset superset/superset \
   --namespace $NAMESPACE \
   --set labels.project=flood-risk \
