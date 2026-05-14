@@ -42,6 +42,19 @@ The `deploy.sh` script automates:
 **Problem**: Unreliable connection to the `scarf.sh` registry caused `ImagePullBackOff` errors.
 **Solution**: Re-routed image pulls directly to the official `apache/superset` repository on Docker Hub.
 
+### 5. Shared Volume Access Modes
+**Problem**: `ReadWriteMany` (RWX) is not supported by default local storage classes, causing `data-pvc` to remain in `Pending` state.
+**Solution**: Switched to `ReadWriteOnce` (RWO). In a single-node local cluster, this still allows multiple pods (scheduler and workers) to mount the same volume simultaneously.
+
+## Data Pipeline
+
+### Airflow DAGs
+- **`extract_spatial_data`**: 
+  - **Purpose**: Extracts road networks and building footprints from OpenStreetMap (OSM) and historical weather data from Open-Meteo.
+  - **Targets**: Lagos, Kogi, and Bayelsa states in Nigeria.
+  - **Logic**: Each task runs in an isolated pod (KubernetesExecutor). Uses `osmnx` for spatial data and `requests` for weather APIs.
+  - **Output**: Raw data is stored in `/opt/airflow/data/raw/` on the shared `data-pvc`.
+
 ## How to Deploy
 Run the following command in the project root:
 ```bash
