@@ -46,6 +46,10 @@ The `deploy.sh` script automates:
 **Problem**: `ReadWriteMany` (RWX) is not supported by default local storage classes, causing `data-pvc` to remain in `Pending` state.
 **Solution**: Switched to `ReadWriteOnce` (RWO). In a single-node local cluster, this still allows multiple pods (scheduler and workers) to mount the same volume simultaneously.
 
+### 6. Airflow 3.0 Compatibility
+**Problem**: The DAG failed to parse with a `TypeError` because `schedule_interval` is deprecated and removed in Airflow 3.0+.
+**Solution**: Updated the DAG definition to use the new `schedule` parameter.
+
 ## Data Pipeline
 
 ### Airflow DAGs
