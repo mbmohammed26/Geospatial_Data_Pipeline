@@ -5,7 +5,7 @@ import requests
 import osmnx as ox
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator
 
 # Configuration
 STATES = ['Ikeja, Lagos, Nigeria', 'Kogi, Nigeria', 'Bayelsa, Nigeria']
