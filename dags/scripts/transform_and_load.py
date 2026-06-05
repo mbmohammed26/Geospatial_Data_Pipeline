@@ -18,10 +18,9 @@ def transform_and_load_spatial():
     engine = get_engine()
     
     # Drop existing tables to avoid duplicate rows and ensure consistent schemas
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS buildings;"))
         conn.execute(text("DROP TABLE IF EXISTS roads;"))
-        conn.commit()
     
     # Process Buildings
     building_files = glob.glob(os.path.join(RAW_DATA_PATH, "*_buildings.geojson"))
