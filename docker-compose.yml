@@ -1,0 +1,118 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.1
+  environment:
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://geo_admin:geo_password@postgis/airflow
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
+    - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+    - _PIP_ADDITIONAL_REQUIREMENTS=geopandas shapely sqlalchemy geoalchemy2 osmnx requests
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./data:/opt/airflow/data
+  user: "50000:0"
+  depends_on:
+    postgis:
+      condition: service_healthy
+
+services:
+  postgis:
+    image: postgis/postgis:15-3.3
+    container_name: postgis
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=geo_admin
+      - POSTGRES_PASSWORD=geo_password
+      - POSTGRES_DB=geodata
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geo_admin -d geodata"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgis
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@example.com --password admin
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    ports:
+      - "8080:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    restart: always
+
+  superset:
+    image: apache/superset:4.0.2
+    container_name: superset
+    ports:
+      - "8088:8088"
+    environment:
+      - SUPERSET_SECRET_KEY=geodata_secret_key_12345
+      - SQLALCHEMY_DATABASE_URI=postgresql://geo_admin:geo_password@postgis/superset
+    volumes:
+      - superset_data:/app/superset_home
+      - ./data:/data
+    depends_on:
+      postgis:
+        condition: service_healthy
+    restart: always
+
+  superset-init:
+    image: apache/superset:4.0.2
+    container_name: superset-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        superset db upgrade
+        superset fab create-admin --username admin --firstname Admin --lastname Admin --email admin@example.com --password admin
+        superset init
+    environment:
+      - SUPERSET_SECRET_KEY=geodata_secret_key_12345
+      - SQLALCHEMY_DATABASE_URI=postgresql://geo_admin:geo_password@postgis/superset
+    depends_on:
+      postgis:
+        condition: service_healthy
+
+volumes:
+  db_data:
+  pgadmin_data:
+  superset_data:
