@@ -35,12 +35,15 @@ helm upgrade --install airflow apache-airflow/airflow \
   --set createUserJob.useHelmHooks=false \
   --set dags.persistence.enabled=true \
   --set dags.persistence.size=1Gi \
-  --set "extraPipPackages={geopandas,shapely,sqlalchemy,geoalchemy2,osmnx,requests}" \
   --set "workers.extraVolumes[0].name=data-volume" \
   --set "workers.extraVolumes[0].persistentVolumeClaim.claimName=data-pvc" \
   --set "workers.extraVolumeMounts[0].name=data-volume" \
   --set "workers.extraVolumeMounts[0].mountPath=/opt/airflow/data/raw" \
-  --wait --timeout 20m0s
+  --set "workers.resources.requests.memory=2Gi" \
+  --set "workers.resources.requests.cpu=1" \
+  --set "workers.resources.limits.memory=4Gi" \
+  --set "workers.resources.limits.cpu=2" \
+  --reset-values --wait --timeout 20m0s
 
 echo "Installing Apache Superset"
 helm upgrade --install superset superset/superset \
