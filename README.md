@@ -1,136 +1,87 @@
 # Geospatial Data Pipeline for Urban Flood Risk Assessment
 
-This project implements an enterprise-grade Geospatial Data Pipeline for urban flood risk assessment in Nigeria, leveraging a cloud-native architecture.
+This project implements an enterprise-grade Geospatial Data Pipeline for urban flood risk assessment in Nigeria, leveraging a containerized architecture powered by Docker Compose.
 
-## Prerequisites
-- **kubectl** (v1.36.1+): Installed locally in `~/.local/bin`.
-- **Helm** (v3.15.2+): Installed locally in `~/.local/bin`.
-- **Kubernetes Cluster**: Local cluster (e.g., Docker Desktop, Minikube, or Kind).
+---
 
-## Infrastructure Scaffolding
+## 1. Prerequisites
+- **Docker Desktop** installed and running.
+- **Hardware Resources**: Allocate at least **8GB RAM** and **4 CPUs** to Docker (Settings > Resources) to handle the resource-intensive spatial processing.
 
-The core infrastructure is deployed in the `geodata` namespace using `deploy.sh`.
+---
 
-### Components
-- **PostGIS**: A spatial database for storing geospatial vectors and rasters.
-  - Deployed as a `StatefulSet` with a 10GB `PersistentVolumeClaim`.
-- **Apache Airflow**: Orchestration engine configured with `KubernetesExecutor` for scalable task isolation.
-- **Apache Superset**: Visualization platform for exploring geospatial insights.
+## 2. Infrastructure Setup (Docker Compose)
 
-### Deployment Script
-The `deploy.sh` script automates:
-1. Namespace creation.
-2. Helm repository management.
-3. PostGIS manifest application.
-4. Airflow and Superset installation/upgrades.
+The pipeline uses a consolidated database backend (a single PostgreSQL + PostGIS instance containing separate databases for `airflow`, `superset`, and `geodata`) to optimize resource usage.
 
-## Challenges & Solutions
-
-### 1. Airflow Migration Deadlocks
-**Problem**: Airflow components were stuck waiting for database migrations that wouldn't trigger automatically in the local environment.
-**Solution**: Explicitly enabled `migrateDatabaseJob` and `createUserJob` while disabling `useHelmHooks` to ensure jobs run reliably during the installation phase.
-
-### 2. Superset Security Requirements
-**Problem**: Newer Superset versions refuse to start if an insecure or default `SECRET_KEY` is detected.
-**Solution**: Injected a unique `SECRET_KEY` via `configOverrides` in the Helm chart.
-
-### 3. Missing Database Drivers in Superset
-**Problem**: The official lean Superset images do not include the `psycopg2` driver required for PostgreSQL connectivity.
-**Solution**: Switched to the `apache/superset:5.0.0-dev` image tag which includes common database drivers by default.
-
-### 4. Registry Connectivity Issues
-**Problem**: Unreliable connection to the `scarf.sh` registry caused `ImagePullBackOff` errors.
-**Solution**: Re-routed image pulls directly to the official `apache/superset` repository on Docker Hub.
-
-### 5. Shared Volume Access Modes
-**Problem**: `ReadWriteMany` (RWX) is not supported by default local storage classes, causing `data-pvc` to remain in `Pending` state.
-**Solution**: Switched to `ReadWriteOnce` (RWO). In a single-node local cluster, this still allows multiple pods (scheduler and workers) to mount the same volume simultaneously.
-
-### 6. Airflow 3.0 Compatibility
-**Problem**: The DAG failed to parse with a `TypeError` because `schedule_interval` is deprecated and removed in Airflow 3.0+.
-**Solution**: Updated the DAG definition to use the new `schedule` parameter.
-
-### 7. Pre-Warmed Shared Dependencies
-**Problem**: In `KubernetesExecutor`, ephemeral worker pods were crashing due to extremely slow dependency downloads (90kB/s) at runtime, causing startup timeouts.
-**Solution**: Optimized the pipeline by pre-installing all heavy geospatial libraries into a shared `python_libs` directory on the `data-pvc`. The DAG now dynamically adds this path to `sys.path`, enabling near-instant task startup without redundant downloads.
-
-### 8. Visibility into Ephemeral Task Logs
-**Problem**: Task logs were lost when worker pods were deleted, making troubleshooting difficult.
-**Solution**: (Work in Progress) Log persistence requires `ReadWriteOnce` volumes and specific Helm chart configurations. Currently, logs are accessible in real-time via `kubectl logs`.
-
-### 9. Worker Resource Constraints
-**Problem**: Large spatial extractions (e.g., Lagos building footprints) can exceed default pod memory limits, leading to OOM (Out Of Memory) kills.
-**Solution**: Increased worker pod resource limits to 4GB RAM and 2 CPUs in the Helm chart.
-
-## Data Pipeline
-
-### Airflow DAGs
-- **`extract_spatial_data`**: 
-  - **Purpose**: Extracts road networks and building footprints from OpenStreetMap (OSM) and historical weather data from Open-Meteo.
-  - **Targets**: Lagos, Kogi, and Bayelsa states in Nigeria.
-  - **Logic**: Each task runs in an isolated pod (KubernetesExecutor). Uses `osmnx` for spatial data and `requests` for weather APIs.
-  - **Output**: Raw data is stored in `/opt/airflow/data/raw/` on the shared `data-pvc`.
-
-- **`transform_and_load`**:
-  - **Purpose**: Cleans raw data, reprojects to `EPSG:4326`, and loads it into PostGIS.
-  - **Tables**: `buildings`, `roads`, `rainfall`.
-  - **Logic**: Uses `GeoPandas` for spatial transformations and `GeoAlchemy2` for PostGIS loading. Adds spatial GIST indexes to geometry columns.
-
-## Superset Configuration & Visualization
-
-### 1. Automating Connection
-Run the following commands to connect Superset to PostGIS and create datasets:
+### Quick Start
+To spin up all services:
 ```bash
-# Upload the init script to the Superset pod
-export SUPERSET_POD=$(kubectl get pods -n geodata -l app=superset -o jsonpath='{.items[0].metadata.name}')
-kubectl cp scripts/superset_init_geodata.py geodata/$SUPERSET_POD:/tmp/superset_init_geodata.py
-
-# Execute the script via Superset shell
-kubectl exec -it $SUPERSET_POD -n geodata -- superset shell < scripts/superset_init_geodata.py
+# Start all containers in detached mode
+docker compose up -d
 ```
 
-### 2. Accessing the UI
-1. **Port-Forward**:
-   ```bash
-   kubectl port-forward service/superset 8088:8088 -n geodata
-   ```
-2. **Login**:
-   - URL: `http://localhost:8088`
-   - Default Username: `admin`
-   - Default Password: `admin` (Wait for `superset-init` job to complete)
+### Deployed Services
+1. **PostgreSQL + PostGIS** (`localhost:5432`): Stores spatial footprints, roads, and rainfall statistics.
+2. **PgAdmin 4** (`http://localhost:5050`): Web-based database management UI (Credentials: `admin@admin.com` / `admin`).
+3. **Apache Airflow** (`http://localhost:8080`): DAG runner and orchestration scheduler (Credentials: `admin` / `admin`).
+4. **Apache Superset** (`http://localhost:8088`): Visualization layer (Credentials: `admin` / `admin`).
 
-### 3. Creating the Dashboard
-To assemble the **Urban Flood Risk Dashboard**:
+---
 
-#### Building Footprints (Deck.gl Polygon)
-- **Dataset**: `buildings`
-- **Visualization Type**: `deck.gl Polygon`
-- **Geometry Column**: `geometry`
-- **Styling**: Set opacity to 0.6 and choose a color gradient based on building attributes (if available).
+## 3. Data Ingestion & Transformation Pipeline
 
-#### Rainfall Data (Deck.gl Scatterplot)
-- **Dataset**: `rainfall`
-- **Visualization Type**: `deck.gl Scatterplot`
-- **Longitude/Latitude**: Use the corresponding columns.
-- **Point Radius**: Map to `precipitation_sum` to visualize rainfall intensity.
+### Step 3.1: Trigger Ingestion (Airflow)
+1. Navigate to the Airflow UI at `http://localhost:8080` (credentials: `admin` / `admin`).
+2. Turn the `extract_spatial_data` DAG **On** and trigger it.
+3. The DAG performs two extraction phases:
+   - **OSM Infrastructure**: Queries building footprints and road networks for Ikeja (Lagos), Kogi, and Bayelsa using the `osmnx` library.
+   - **Weather Extraction**: Queries Open-Meteo historical archive API for precipitation totals.
+4. Once extraction finishes, it executes `transform_and_load.py` which cleans the spatial records, reprojects them to `EPSG:4326`, loads them into PostGIS, and applies GIST spatial indexing.
 
-## Resumption Guide
-To pick up where we left off:
-1. **Finish Pre-Warming Libraries**: Run the pip install into the shared volume (this was interrupted):
-   ```bash
-   kubectl exec -it $(kubectl get pods -n geodata -l component=scheduler -o jsonpath='{.items[0].metadata.name}') -n geodata -- pip install --target /opt/airflow/data/raw/python_libs geopandas shapely sqlalchemy geoalchemy2 osmnx requests
-   ```
-2. **Trigger the Pipeline**: Once the libs are installed, trigger the DAG:
-   ```bash
-   kubectl exec -it $(kubectl get pods -n geodata -l component=scheduler -o jsonpath='{.items[0].metadata.name}') -n geodata -- airflow dags trigger extract_spatial_data
-   ```
-3. **Access Superset**:
-   ```bash
-   kubectl port-forward service/superset 8088:8088 -n geodata
+### Step 3.2: Verify Data Ingestion (PgAdmin)
+1. Open PgAdmin at `http://localhost:5050` (credentials: `admin@admin.com` / `admin`).
+2. Add a new server connection:
+   - **Host**: `postgis` (or `localhost` if connecting from host machine)
+   - **Username**: `geo_admin`
+   - **Password**: `geo_password`
+   - **Database**: `geodata`
+3. Run the following queries to verify datasets:
+   ```sql
+   SELECT * FROM buildings LIMIT 10;
+   SELECT * FROM roads LIMIT 10;
+   SELECT * FROM rainfall LIMIT 10;
    ```
 
-## How to Deploy
-Run the following command in the project root:
+---
+
+## 4. Superset Configuration & Visualization
+
+### Step 4.1: Automate Database and Dataset Registration
+Once the pipeline has completed running and data is successfully loaded into PostGIS, run the following automated script to connect Superset to the database and register the datasets:
 ```bash
-./deploy.sh
+./init_superset.sh
 ```
+
+### Step 4.2: Assembling the Dashboard in Superset
+1. Open `http://localhost:8088` (credentials: `admin` / `admin`).
+2. Go to **Data > Datasets** to verify the datasets `buildings`, `roads`, and `rainfall` are present.
+
+#### Create the Building Footprints Map:
+1. Click **+ Chart** in the top right.
+2. Select `buildings` as your dataset and **deck.gl Polygon** as the visualization type.
+3. Under the query panel:
+   - Set **Polygon Column** to `geometry`.
+   - Set Stroke and Fill Colors as desired.
+   - Click **Save** and name it `Ikeja Building Footprints`.
+
+#### Create the Rainfall Scatterplot:
+1. Click **+ Chart** in the top right.
+2. Select `rainfall` as your dataset and **deck.gl Scatterplot** as the visualization type.
+3. Under the query panel:
+   - Set Longitude/Latitude fields.
+   - Set Point Radius based on the `precipitation_sum` column to highlight heavy rainfall centers.
+   - Click **Save** and name it `Rainfall Spotlights`.
+
+#### Assemble the Dashboard:
+Create a new dashboard named **Urban Flood Risk Dashboard** and drop both charts side by side to identify structure locations under high precipitation risks.
