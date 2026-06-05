@@ -1,3 +1,4 @@
+# Python dependencies for the Geospatial Data Pipeline
 geopandas
 shapely
 sqlalchemy
