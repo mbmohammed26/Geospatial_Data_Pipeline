@@ -121,12 +121,11 @@ def transform_and_load_rainfall():
 
 def create_spatial_indexes():
     engine = get_engine()
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         print("Creating spatial indexes...")
         try:
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_buildings_geom ON buildings USING GIST (geometry);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_roads_geom ON roads USING GIST (geometry);"))
-            conn.commit()
         except Exception as e:
             print(f"Error creating indexes (tables might not exist yet): {e}")
         print("Spatial index creation attempt completed.")
