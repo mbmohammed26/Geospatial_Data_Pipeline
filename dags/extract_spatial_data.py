@@ -93,6 +93,14 @@ def extract_weather_data(**kwargs):
             
         time.sleep(5) # Delay for API limits
 
+def run_transform_and_load(**kwargs):
+    import sys
+    sys.path.append('/opt/airflow/dags')
+    from scripts.transform_and_load import transform_and_load_spatial, transform_and_load_rainfall, create_spatial_indexes
+    transform_and_load_spatial()
+    transform_and_load_rainfall()
+    create_spatial_indexes()
+
 with DAG(
     'extract_spatial_data',
     default_args=default_args,
@@ -112,5 +120,10 @@ with DAG(
         python_callable=extract_weather_data,
     )
 
+    transform_task = PythonOperator(
+        task_id='transform_and_load_to_postgis',
+        python_callable=run_transform_and_load,
+    )
+
     # Define execution order
-    osm_task >> weather_task
+    osm_task >> weather_task >> transform_task

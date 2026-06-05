@@ -8,7 +8,7 @@ x-airflow-common: &airflow-common
     - AIRFLOW__CORE__LOAD_EXAMPLES=False
     - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
     - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
-    - _PIP_ADDITIONAL_REQUIREMENTS=geopandas shapely sqlalchemy geoalchemy2 osmnx requests
+    - _PIP_ADDITIONAL_REQUIREMENTS=geopandas shapely sqlalchemy geoalchemy2 osmnx requests psycopg2-binary pyogrio
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs

@@ -72,7 +72,7 @@ def transform_and_load_spatial():
         edges_subset = edges[[c for c in cols_to_keep if c in edges.columns]]
         
         edges_subset.to_postgis("roads", engine, if_exists="append", index=False,
-                                dtype={'geometry': Geometry('LINESTRING', srid=4326)})
+                                dtype={'geometry': Geometry('GEOMETRY', srid=4326)})
         print(f"Loaded roads for {state} to PostGIS.")
 
 def transform_and_load_rainfall():

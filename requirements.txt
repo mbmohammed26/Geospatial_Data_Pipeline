@@ -5,3 +5,5 @@ sqlalchemy
 geoalchemy2
 osmnx
 apache-airflow
+psycopg2-binary
+pyogrio
