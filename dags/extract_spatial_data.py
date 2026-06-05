@@ -8,7 +8,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 # Configuration
-STATES = ['Ikeja, Lagos, Nigeria', 'Kogi, Nigeria', 'Bayelsa, Nigeria']
+STATES = ['Ikeja, Lagos, Nigeria', 'Lokoja, Kogi, Nigeria', 'Yenagoa, Bayelsa, Nigeria']
 RAW_DATA_PATH = '/opt/airflow/data/raw/'
 
 # Configure OSMnx to use alternative Overpass API endpoint to bypass rate limits
@@ -17,8 +17,8 @@ ox.settings.overpass_url = "https://lz4.overpass-api.de/api/interpreter"
 # Coordinates for Open-Meteo
 STATE_COORDINATES = {
     'Ikeja, Lagos, Nigeria': {'lat': 6.5965, 'lon': 3.3366},
-    'Kogi, Nigeria': {'lat': 7.7985, 'lon': 6.7327},
-    'Bayelsa, Nigeria': {'lat': 4.9330, 'lon': 6.2676}
+    'Lokoja, Kogi, Nigeria': {'lat': 7.7985, 'lon': 6.7327},
+    'Yenagoa, Bayelsa, Nigeria': {'lat': 4.9330, 'lon': 6.2676}
 }
 
 default_args = {
