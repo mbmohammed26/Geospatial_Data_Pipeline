@@ -12,7 +12,7 @@ STATES = ['Ikeja, Lagos, Nigeria', 'Kogi, Nigeria', 'Bayelsa, Nigeria']
 RAW_DATA_PATH = '/opt/airflow/data/raw/'
 
 # Configure OSMnx to use alternative Overpass API endpoint to bypass rate limits
-ox.settings.overpass_url = "https://overpass.kumi.systems/api/interpreter"
+ox.settings.overpass_url = "https://lz4.overpass-api.de/api/interpreter"
 
 # Coordinates for Open-Meteo
 STATE_COORDINATES = {
