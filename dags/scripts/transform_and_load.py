@@ -17,6 +17,12 @@ def get_engine():
 def transform_and_load_spatial():
     engine = get_engine()
     
+    # Drop existing tables to avoid duplicate rows and ensure consistent schemas
+    with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS buildings;"))
+        conn.execute(text("DROP TABLE IF EXISTS roads;"))
+        conn.commit()
+    
     # Process Buildings
     building_files = glob.glob(os.path.join(RAW_DATA_PATH, "*_buildings.geojson"))
     for file in building_files:
@@ -40,10 +46,13 @@ def transform_and_load_spatial():
         print(f"Cleaned {initial_count - len(gdf)} empty/null geometries.")
         
         # Load to PostGIS
-        # We append all buildings to a single 'buildings' table
+        # Keep consistent columns to prevent database schema mismatch errors on append
         gdf['state'] = state
-        gdf.to_postgis("buildings", engine, if_exists="append", index=False, 
-                       dtype={'geometry': Geometry('GEOMETRY', srid=4326)})
+        cols_to_keep = ['name', 'building', 'amenity', 'geometry', 'state']
+        gdf_subset = gdf[[c for c in cols_to_keep if c in gdf.columns]].copy()
+        
+        gdf_subset.to_postgis("buildings", engine, if_exists="append", index=False, 
+                              dtype={'geometry': Geometry('GEOMETRY', srid=4326)})
         print(f"Loaded buildings for {state} to PostGIS.")
 
     # Process Roads
