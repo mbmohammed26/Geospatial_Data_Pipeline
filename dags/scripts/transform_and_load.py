@@ -42,7 +42,18 @@ def transform_and_load_spatial():
         initial_count = len(gdf)
         gdf = gdf[gdf.geometry.notnull()]
         gdf = gdf[~gdf.geometry.is_empty]
-        print(f"Cleaned {initial_count - len(gdf)} empty/null geometries.")
+        
+        # Keep only Polygon and MultiPolygon geometries
+        gdf = gdf[gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])].copy()
+        
+        # Convert all simple Polygons to MultiPolygons for absolute geometry column type consistency
+        from shapely.geometry import Polygon, MultiPolygon
+        gdf['geometry'] = [
+            MultiPolygon([geom]) if isinstance(geom, Polygon) else geom
+            for geom in gdf['geometry']
+        ]
+        
+        print(f"Cleaned {initial_count - len(gdf)} empty/null/non-polygon geometries.")
         
         # Load to PostGIS
         # Keep consistent columns to prevent database schema mismatch errors on append
