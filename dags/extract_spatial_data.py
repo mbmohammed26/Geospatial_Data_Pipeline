@@ -11,6 +11,9 @@ from airflow.operators.python import PythonOperator
 STATES = ['Ikeja, Lagos, Nigeria', 'Kogi, Nigeria', 'Bayelsa, Nigeria']
 RAW_DATA_PATH = '/opt/airflow/data/raw/'
 
+# Configure OSMnx to use alternative Overpass API endpoint to bypass rate limits
+ox.settings.overpass_url = "https://overpass.kumi.systems/api/interpreter"
+
 # Coordinates for Open-Meteo
 STATE_COORDINATES = {
     'Ikeja, Lagos, Nigeria': {'lat': 6.5965, 'lon': 3.3366},
