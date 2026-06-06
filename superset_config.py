@@ -9,3 +9,6 @@ SECRET_KEY = 'geodata_secret_key_12345'
 FEATURE_FLAGS = {
     "EMBEDDED_SUPERSET": True
 }
+
+# Add your free Mapbox API token here (starts with 'pk.') to enable deck.gl maps
+# MAPBOX_API_KEY = 'pk.YOUR_MAPBOX_TOKEN_HERE'
