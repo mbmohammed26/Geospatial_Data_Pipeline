@@ -11,4 +11,4 @@ FEATURE_FLAGS = {
 }
 
 # Add your free Mapbox API token here (starts with 'pk.') to enable deck.gl maps
-# MAPBOX_API_KEY = 'pk.YOUR_MAPBOX_TOKEN_HERE'
+MAPBOX_API_KEY = '<YOUR_MAPBOX_API_TOKEN_HERE>'
