@@ -80,9 +80,13 @@ Raw data undergoes cleaning and loading inside `transform_and_load.py`:
 - **Problem**: When executing `transform_and_load.py` within the Airflow worker container, imports of `geopandas` failed due to missing low-level C libraries (GDAL/PROJ) and database drivers (psycopg2).
 - **Solution**: We configured `_PIP_ADDITIONAL_REQUIREMENTS` to dynamically build and cache requirements like `psycopg2-binary` and `pyogrio` inside the container environment.
 
-### Challenge 4.4: Geometry Parsing Errors in Superset Deck.gl Polygon Charts
-- **Problem**: Superset was unable to parse spatial geometry objects out of the box when database columns were imported, resulting in blank polygons on the Deck.gl map visualization.
-- **Solution**: The data loading script was updated to strictly enforce standard PostGIS geometry columns utilizing GeoAlchemy2's `Geometry('GEOMETRY', srid=4326)`. In Superset, we configured the dataset columns to treat the geometry column as a native spatial field, referencing it directly as the Polygon Column.
+### Challenge 4.4: Empty Maps and "0 Rows" Returned in Superset Deck.gl Charts
+- **Problem**: Superset was unable to parse spatial geometry objects out of the box, and both the Polygon and Scatterplot deck.gl charts were returning "0 rows" or aggregating spatial coordinates into a single point, resulting in empty visual maps.
+- **Solution**: First, the data loading script was updated to export geometries into stringified GeoJSON for reliable parsing. Second, the **Query Mode** for all deck.gl charts was explicitly switched from `AGGREGATE` to `RAW RECORDS` in Superset. This ensured that the SQL engine returned every individual row's coordinates and geometries natively without applying unwanted mathematical groupings.
+
+### Challenge 4.5: Mapbox GL Background Failing to Render
+- **Problem**: Deck.gl charts require a map tile provider for the background layout. Superset blocks these tiles natively if an API token is missing, resulting in blank grey backgrounds and CORS warnings.
+- **Solution**: We injected a valid `MAPBOX_API_KEY` into `superset_config.py`. The Superset Docker container was then refreshed, allowing the geographic map tiles to render correctly beneath the spatial data visualizations.
 
 ---
 
@@ -90,6 +94,8 @@ Raw data undergoes cleaning and loading inside `transform_and_load.py`:
 
 The final dashboard overlays building polygon outlines and rainfall data:
 
-- **Deck.gl Polygon Chart (Buildings)**: Plots the physical building footprints in Ikeja, Kogi, and Bayelsa. The color scale can be set to represent building density or classification.
-- **Deck.gl Scatterplot (Rainfall)**: Visualizes historical weather coordinates. The circle radius is mapped to `precipitation_sum` to visually communicate rainfall hotspots.
-- **Risk Assessment**: High-risk zones are visually identified where dense building polygons directly intersect with large rainfall scatterplot circles.
+- **Deck.gl Polygon Chart (Buildings)**: Plots the physical building footprints in Ikeja, Kogi, and Bayelsa using the stringified `geojson_geom` column in raw records mode.
+- **Deck.gl Scatterplot (Rainfall)**: Visualizes historical weather coordinates. The scatter circles are precisely mapped using the `longitude` and `latitude` fields.
+- **Risk Assessment**: High-risk zones are visually identified where dense building polygons directly intersect with the rainfall coordinate scatterpoints.
+
+![Final Flood Risk Dashboard](./flood_risk_dashboard.png)
